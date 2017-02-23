@@ -1,9 +1,9 @@
 package google_hash_code;
 
-import java.io.BufferedReader;
-import java.io.FileReader;
-import java.io.IOException;
+import java.io.*;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  *
@@ -32,10 +32,10 @@ public class Main {
 
         files = new String[1];
 
-        files[0] = SMALL_FILE;
-//        files[1] = MEDIUM_FILE;
-//        files[2] = BIG_FILE;
-//        files[3] = EXAMPLE_FILE;
+        //files[0] = SMALL_FILE;
+        //files[0] = MEDIUM_FILE;
+        //files[2] = BIG_FILE;
+        files[0] = EXAMPLE_FILE;
 
         for (String inputFile : files) {
 
@@ -126,13 +126,39 @@ public class Main {
 
                 }
 
-//                Results results = new Results();
+                 Results results = new Results();
 //
-//                Algorithm a = new Algorithm();
-//                a.algorithm(results);
+                Algorithm a = new Algorithm();
+                a.algorithm(results);
 //
 //                System.out.println(results.getScore());
 
+
+                PrintWriter pw = new PrintWriter(new FileWriter(inputFile+".out"));
+                int usedCacheServers = 0;
+                for (Cache c :cacheList)
+                {
+                    if (!c.videoList.isEmpty()){
+                        usedCacheServers++;
+                    }
+                }
+                pw.write(usedCacheServers+"\n");
+
+                for (Cache c : cacheList)
+                {
+                    if (!c.videoList.isEmpty()){
+                        pw.write(c.id+" ");
+                        for (Video v :
+                          c.videoList)
+                        {
+                            pw.write(v.id + " ");
+                        }
+                        pw.write("\n");
+                    }
+                }
+
+
+                pw.close();
             } catch (IOException e) {
                 System.out.println("Could not find file");
             }
@@ -143,15 +169,88 @@ public class Main {
     /*Algorithm class*/
     public static class Algorithm implements HashCodeAlgorithm {
 
+
+
+
+
         @Override
         public void algorithm(ResultList r) {
-            
-            
-            
-            
-            
+
+
+            Map<Cache, ArrayList<EndPoint>> map = new HashMap<>();
+            for (Cache c :
+              cacheList)
+            {
+                ArrayList<EndPoint> connectedEps = new ArrayList<>();
+                for (EndPoint ep :
+                  epList)
+                {
+                    if (ep.isConnectedTo(c)){
+                        connectedEps.add(ep);
+                    }
+                }
+                map.put(c, connectedEps);
+            }
+
+            Map<Cache, int[]> requestVectorPerCache = new HashMap<>();
+
+            for (Cache c :
+              map.keySet())
+            {
+                int[] requestsPerVideo = new int[dc.videoList.size()];
+                for (int i = 0;i<requestsPerVideo.length;i++){
+                    requestsPerVideo[i] = 0;
+                }
+                for (Request request: rList)
+                {
+                    if (map.get(c).contains(request.destinationEndPoint)){
+                        requestsPerVideo[request.requestedVideo.id]+=request.quantity;
+                    }
+                }
+                requestVectorPerCache.put(c, requestsPerVideo);
+            }
+            for (Cache c :
+              requestVectorPerCache.keySet())
+            {
+                requestVectorPerCache.replace(c, bubbleSort(requestVectorPerCache.get(c)));
+                for (int i = 0; i < requestVectorPerCache.get(c).length; i++)
+                {
+                    int videoId = requestVectorPerCache.get(c)[i];
+                    c.addVideo(dc.videoList.get(videoId));
+
+                }
+            }
+
+
         }
 
+        private static int[]  bubbleSort(int[] intArray) {
+
+            int[] orderedIndexes = new int[intArray.length];
+            for (int x = 0; x<intArray.length; x++){
+                orderedIndexes[x] = x;
+            }
+            int n = intArray.length;
+            int temp = 0;
+            int temp_1 = 0;
+
+            for(int i=0; i < n; i++){
+                for(int j=1; j < (n-i); j++){
+
+                    if(intArray[j-1] > intArray[j]){
+                        //swap the elements!
+                        temp = intArray[j-1];
+                        temp_1 = orderedIndexes[j-1];
+                        intArray[j-1] = intArray[j];
+                        orderedIndexes[j-1] = orderedIndexes[j];
+                        intArray[j] = temp;
+                        orderedIndexes[j] = temp_1;
+                    }
+
+                }
+            }
+            return orderedIndexes;
+        }
     }
 
     /*Result list class*/
@@ -193,6 +292,10 @@ public class Main {
             this.pingList = pingList;
             this.datacenterPing = datacenterPing;
         }
+
+        public boolean isConnectedTo(Cache c){
+            return pingList[c.id] > 0;
+        }
     }
 
     public static class Video {
@@ -208,18 +311,33 @@ public class Main {
 
     public static class Cache {
 
-        public int id;
-        public int size;
+        public int              id;
+        public int              size;
         public ArrayList<Video> videoList;
+
+        public int occupiedSize;
 
         public Cache(int id, int size) {
             this.id = id;
             this.videoList = new ArrayList<>();
+            occupiedSize = 0;
+            this.size = size;
         }
 
-        public void addVideo(Video v) {
-            this.videoList.add(v);
+        public boolean addVideo(Video v) {
+
+
+            if (occupiedSize + v.mb <= size){
+
+
+                this.videoList.add(v);
+                occupiedSize+=v.mb;
+                return true;
+            }else{
+                return false;
+            }
         }
+
     }
 
     public static class DataCenter {
