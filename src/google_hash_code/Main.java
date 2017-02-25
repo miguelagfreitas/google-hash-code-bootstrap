@@ -30,12 +30,12 @@ public class Main {
 
     public static void main(String[] args) {
 
-        files = new String[1];
+        files = new String[4];
 
-        //files[0] = SMALL_FILE;
-        //files[0] = MEDIUM_FILE;
-        //files[2] = BIG_FILE;
-        files[0] = EXAMPLE_FILE;
+        files[0] = SMALL_FILE;
+        files[1] = MEDIUM_FILE;
+        files[2] = BIG_FILE;
+        files[3] = EXAMPLE_FILE;
 
         for (String inputFile : files) {
 
@@ -91,9 +91,9 @@ public class Main {
                     
                     currentLine = br.readLine();
 
-                    EndPoint ep = new EndPoint(i, null, Integer.parseInt(currentLine.split(" ")[0]));
+                    EndPoint ep = new EndPoint(i, new int[cacheCount], Integer.parseInt(currentLine.split(" ")[0]));
                     int epCacheCount = Integer.parseInt(currentLine.split(" ")[1]);
-                    if (epCacheCount> 0) {
+                    if (epCacheCount > 0) {
                         int count = epCacheCount;
                         while (count > 0) {
                             count--;
@@ -106,7 +106,6 @@ public class Main {
                             int ms  = Integer.parseInt(currentLine.split(" ")[0]);
                             ep.pingList[cacheId] = ms;
                         }
-                        
                     }
                     epList.add(ep);
                 }
@@ -169,59 +168,62 @@ public class Main {
     /*Algorithm class*/
     public static class Algorithm implements HashCodeAlgorithm {
 
-
-
-
-
         @Override
         public void algorithm(ResultList r) {
 
-
+            //para cada cache juntar os endpoints que estao ligados
             Map<Cache, ArrayList<EndPoint>> map = new HashMap<>();
-            for (Cache c :
-              cacheList)
+            for (Cache c : cacheList)
             {
                 ArrayList<EndPoint> connectedEps = new ArrayList<>();
-                for (EndPoint ep :
-                  epList)
+                for (EndPoint ep : epList)
                 {
-                    if (ep.isConnectedTo(c)){
+                    if (ep.isConnectedTo(c))
+                    {
                         connectedEps.add(ep);
                     }
                 }
                 map.put(c, connectedEps);
             }
 
+            //requests totais por cada cache server
             Map<Cache, int[]> requestVectorPerCache = new HashMap<>();
-
-            for (Cache c :
-              map.keySet())
+            for (Cache c : map.keySet())
             {
-                int[] requestsPerVideo = new int[dc.videoList.size()];
-                for (int i = 0;i<requestsPerVideo.length;i++){
+                int[] requestsPerVideo = new int[dc.videoList.size()];  //requests para cada video nesta cache
+
+                //inicializacao
+                for (int i = 0; i < requestsPerVideo.length;i++)
+                {
                     requestsPerVideo[i] = 0;
                 }
+
+                //requests
                 for (Request request: rList)
                 {
-                    if (map.get(c).contains(request.destinationEndPoint)){
-                        requestsPerVideo[request.requestedVideo.id]+=request.quantity;
+                    if (map.get(c).contains(request.destinationEndPoint))   //o endpoint e um dos que esta ligado a cache
+                    {
+                        requestsPerVideo[request.requestedVideo.id] += request.quantity;
                     }
                 }
+
+                //atualiza os pedidos por video para esta cache
                 requestVectorPerCache.put(c, requestsPerVideo);
             }
-            for (Cache c :
-              requestVectorPerCache.keySet())
+
+            //ordenar os valores dos pedidos
+            for (Cache c : requestVectorPerCache.keySet())
             {
-                requestVectorPerCache.replace(c, bubbleSort(requestVectorPerCache.get(c)));
+                int[] requestsPerVideo = requestVectorPerCache.get(c);
+                requestVectorPerCache.replace(c, bubbleSort(requestsPerVideo));
+
                 for (int i = 0; i < requestVectorPerCache.get(c).length; i++)
                 {
                     int videoId = requestVectorPerCache.get(c)[i];
-                    c.addVideo(dc.videoList.get(videoId));
-
+                    if(!c.addVideo(dc.videoList.get(videoId)))
+                        break;
                 }
             }
-
-
         }
 
         private static int[]  bubbleSort(int[] intArray) {
@@ -237,7 +239,7 @@ public class Main {
             for(int i=0; i < n; i++){
                 for(int j=1; j < (n-i); j++){
 
-                    if(intArray[j-1] > intArray[j]){
+                    if(intArray[j-1] < intArray[j]){
                         //swap the elements!
                         temp = intArray[j-1];
                         temp_1 = orderedIndexes[j-1];
